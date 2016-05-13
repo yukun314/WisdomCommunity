@@ -1,0 +1,2 @@
+include ':mqtt-paho', ':mqtt-paho-service', ':mqtt-demo', ':app'
+include ':mqtt-paho-service-sample'
