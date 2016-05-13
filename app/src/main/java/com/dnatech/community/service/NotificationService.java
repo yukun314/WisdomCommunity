@@ -45,8 +45,15 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 	public void onCreate() {
 		super.onCreate();
 
+		//新建客户端并连接MQTT服务器
 		newClient();
 		reconnect();
+		//订阅 自己的主题
+		try {
+			mClient.subscribe("我",1);
+		} catch (MqttException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -80,7 +87,7 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 
 	@Override
 	public void messageArrived(String topic, MqttMessage message) throws Exception {
-		System.out.println("NotificationService messageArrived");
+		System.out.println("NotificationService messageArrived:"+message);
 	}
 
 	@Override
