@@ -1,5 +1,7 @@
 package com.dnatech.community.service;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -10,6 +12,10 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.support.annotation.Nullable;
+
+import com.dnatech.community.entity.MessageEntity;
+import com.dnatech.community.entity.SubscribeEntity;
+import com.dnatech.community.sqlite.WCDatebaseHelper;
 import com.dnatech.community.utils.NetworkUtils;
 import com.dnatech.community.utils.Utils;
 
@@ -24,14 +30,15 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 
 import java.io.File;
-import java.io.FileInputStream;
+import java.util.List;
 
 /**
  * Created by zyk on 2016/5/12.
  */
-public class NotificationService extends Service implements MqttCallback ,IMqttActionListener {
+public class NotificationService extends Service implements MqttCallback {
 
 	final String TAG = "NotificationService";
+	private static String AlarmManagerAction = "com.dnatech.community.alarm";
 	// our client object - instantiated on connect
 	private MqttAsyncClient mClient = null;
 	private MqttConnectOptions connectOptions;
@@ -39,25 +46,30 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 	// An intent receiver to deal with changes in network connectivity
 	private NetworkConnectionIntentReceiver networkConnectionMonitor;
 	private BackgroundDataPreferenceReceiver backgroundDataPreferenceMonitor;
+	private AlarmManagerReceiver alarmManager;
 	private volatile boolean backgroundDataEnabled = true;
+
+	private WCDatebaseHelper mDatebase;
+
+	private ConnectActionListener mConnectAction = new ConnectActionListener();
+	private SubscribeActionListener mSubscribeAction = new SubscribeActionListener();
 
 	@Override
 	public void onCreate() {
 		super.onCreate();
-
+		mDatebase = new WCDatebaseHelper(this);
+		long id = mDatebase.insertMessage("title","简介",null,"url","publisher",null);
+//		mDatebase.selectMessageAll();
+		mDatebase.updateMessageReadById((int)id,true);
 		//新建客户端并连接MQTT服务器
 		newClient();
 		reconnect();
-		//订阅 自己的主题
-		try {
-			mClient.subscribe("我",1);
-		} catch (MqttException e) {
-			e.printStackTrace();
-		}
+
 	}
 
 	@Override
 	public int onStartCommand(final Intent intent, int flags, final int startId) {
+		System.out.println("NotificationService onStartCommand");
 		// run till explicitly stopped, restart when
 		// process restarted
 		registerBroadcastReceivers();
@@ -67,7 +79,11 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 
 	@Override
 	public void onDestroy() {
+		unregisterBroadcastReceivers();
+		disconnect();
+		mDatebase = null;
 		super.onDestroy();
+		System.out.println("NotificationService onDestroy");
 		//当启动该service的app在前台时 service被杀掉不会执行onDestroy，当app退出后才会执行onDestroy
 		//重启该服务
 		Intent sevice = new Intent(this, NotificationService.class);
@@ -95,16 +111,6 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 		System.out.println("NotificationService deliveryComplete");
 	}
 
-	@Override
-	public void onSuccess(IMqttToken asyncActionToken) {
-
-	}
-
-	@Override
-	public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-
-	}
-
 	/**
 	 * @return whether the android service can be regarded as online
 	 */
@@ -127,16 +133,26 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 			getConnectOptions();
 		}
 		try {
-			mClient.connect(connectOptions, null, this);
+			mClient.connect(connectOptions, null, mConnectAction);
 		} catch (MqttException e) {
 			e.printStackTrace();
+			System.out.println("NotificationService reconnect:"+e);
 			//FIXME
 		}
 	}
 
+	private void disconnect(){
+		if(mClient != null && mClient.isConnected()) {
+			try {
+				mClient.disconnect(null, null);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
 	//FIXME
 	private void notifyClientsOffline(){
-
+		//网络中断时被调用
 	}
 
 	private void newClient(){
@@ -164,6 +180,7 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 
 			mClient.setCallback(this);
 		} catch (MqttException e){
+			System.out.println("NotificationService newClient;"+e);
 			//FIXME
 		}
 	}
@@ -192,6 +209,12 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 					ConnectivityManager.CONNECTIVITY_ACTION));
 		}
 
+		if(alarmManager == null) {
+			alarmManager = new AlarmManagerReceiver();
+			registerReceiver(alarmManager, new IntentFilter(AlarmManagerAction));
+		}
+
+
 		if (Build.VERSION.SDK_INT < 14 /**Build.VERSION_CODES.ICE_CREAM_SANDWICH**/) {
 			// Support the old system for background data preferences
 			ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
@@ -212,6 +235,11 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 			networkConnectionMonitor = null;
 		}
 
+		if(alarmManager != null) {
+			unregisterReceiver(alarmManager);
+			alarmManager = null;
+		}
+
 		if (Build.VERSION.SDK_INT < 14 /**Build.VERSION_CODES.ICE_CREAM_SANDWICH**/) {
 			if (backgroundDataPreferenceMonitor != null) {
 				unregisterReceiver(backgroundDataPreferenceMonitor);
@@ -228,6 +256,7 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 
 		@Override
 		public void onReceive(Context context, Intent intent) {
+			System.out.println("NetworkConnectionIntentReceiver");
 //			traceDebug(TAG, "Internal network status receive.");
 			// we protect against the phone switching off
 			// by requesting a wake lock - we request the minimum possible wake
@@ -259,6 +288,7 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 		@SuppressWarnings("deprecation")
 		@Override
 		public void onReceive(Context context, Intent intent) {
+			System.out.println("BackgroundDataPreferenceReceiver");
 			ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
 //			traceDebug(TAG, "Reconnect since BroadcastReceiver.");
 			if (cm.getBackgroundDataSetting()) {
@@ -271,6 +301,70 @@ public class NotificationService extends Service implements MqttCallback ,IMqttA
 			} else {
 				backgroundDataEnabled = false;
 				notifyClientsOffline();
+			}
+		}
+	}
+
+	private class ConnectActionListener implements IMqttActionListener{
+		@Override
+		public void onSuccess(IMqttToken asyncActionToken) {
+			//订阅 自己的主题
+			try {
+				List<SubscribeEntity> list = mDatebase.selectSubscribeAll();
+				int count = list.size();
+				String[]topic = new String[count];
+				int[]qos = new int[count];
+				for(int i = 0;i<count;i++){
+					SubscribeEntity se = list.get(i);
+					topic[i] = se.topic;
+					qos[i] = se.qos;
+				}
+				mClient.subscribe(topic,qos, null, mSubscribeAction);
+			} catch (MqttException e) {
+				e.printStackTrace();
+			}
+		}
+
+		@Override
+		public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+			System.out.println("链接失败:"+exception);
+			if(isOnline()) {
+				System.out.println("有网络 5分钟 后重新链接");
+				Intent intent = new Intent(AlarmManagerAction);
+				PendingIntent pendingIntent = PendingIntent.getBroadcast(NotificationService.this, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+				//获取系统进程
+				AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);
+				am.set(AlarmManager.RTC, System.currentTimeMillis()+5*60*1000, pendingIntent);
+			}
+		}
+	}
+
+	private class SubscribeActionListener implements IMqttActionListener{
+
+		@Override
+		public void onSuccess(IMqttToken asyncActionToken) {
+			System.out.println("订阅成功");
+		}
+
+		@Override
+		public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+			//FIXME 订阅失败的处理
+			System.out.println("订阅失败 重启该service："+exception);
+			Intent sevice = new Intent(NotificationService.this, NotificationService.class);
+			NotificationService.this.stopService(sevice);
+		}
+	}
+
+	private class AlarmManagerReceiver extends BroadcastReceiver {
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			String action = intent.getAction();
+			System.out.println("接收到重连的广播 :"+action);
+			if (action.equals(AlarmManagerAction) || action == AlarmManagerAction) {
+				if (isOnline()) {
+					System.out.println("开始重新链接");
+					reconnect();
+				}
 			}
 		}
 	}

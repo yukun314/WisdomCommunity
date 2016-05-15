@@ -11,5 +11,5 @@ public class NetworkUtils {
 
     public static final String UpdateURL = ServerURL+"/update";
 
-    public static final String MessageServerURL = "tcp://192.168.1.104:1883";
+    public static final String MessageServerURL = "tcp://192.168.1.100:1883";
 }

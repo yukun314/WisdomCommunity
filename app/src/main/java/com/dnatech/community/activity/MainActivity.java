@@ -11,6 +11,7 @@ import com.dnatech.community.service.NotificationService;
 
 public class MainActivity extends AppCompatActivity {
 
+	int i = 0;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -19,7 +20,15 @@ public class MainActivity extends AppCompatActivity {
 		button.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				startService(new Intent(MainActivity.this, NotificationService.class));
+				Intent intent = new Intent(MainActivity.this, NotificationService.class);
+				if(i%2 == 0) {
+					System.out.println("启动service");
+					startService(intent);
+				} else {
+					System.out.println("停止 service");
+					stopService(intent);
+				}
+				i++;
 			}
 		});
 	}

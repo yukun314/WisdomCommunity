@@ -83,7 +83,7 @@ public class SampleAsyncCallBack implements MqttCallback {
 		String topic 		= "";
 		String message 		= "在这里再次进行测试";
 		int qos 			= 1;
-		String broker 		= "192.168.1.104";
+		String broker 		= "192.168.1.100";
 		int port 			= 1883;
 		String clientId 	= null;
 		String subTopic		= "我";

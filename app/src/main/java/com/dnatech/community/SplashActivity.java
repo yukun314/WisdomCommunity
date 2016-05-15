@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 
 import com.dnatech.community.activity.MainActivity;
+import com.dnatech.community.sqlite.SQLiteConfig;
 
 
 /**
@@ -17,6 +18,7 @@ public class SplashActivity extends Activity{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
+        new SQLiteConfig(this);
         Intent intent = new Intent();
         intent.setClass(this, MainActivity.class);
         startActivity(intent);
