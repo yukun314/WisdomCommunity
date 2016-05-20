@@ -11,14 +11,37 @@
     tools:context=".activity.MainActivity">
 
     <TextView
+        android:id="@+id/activity_main_tv"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Hello World!"/>
 
-    <Button
-        android:id="@+id/button"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:text="启动service"/>
+        android:orientation="vertical"
+        android:layout_below="@id/activity_main_tv">
+        <Button
+            android:id="@+id/activity_main_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="button"/>
+
+        <Button
+            android:id="@+id/activity_main_button1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/activity_main_button"
+            android:layout_marginTop="20dp"
+            android:text="认证"/>
+
+        <Button
+            android:id="@+id/activity_main_button2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/activity_main_button1"
+            android:layout_marginTop="20dp"
+            android:text="钥匙管理"/>
+    </LinearLayout>
 </RelativeLayout>

@@ -46,6 +46,15 @@ public class WCDatebaseHelper extends SQLiteOpenHelper {
 	// (delete and recreate)
 	private static final int DATABASE_VERSION = 1;
 
+	private static WCDatebaseHelper mHelper;
+
+	public static WCDatebaseHelper getInstance(Context context){
+		if(mHelper == null) {
+			mHelper = new WCDatebaseHelper(context);
+		}
+		return mHelper;
+	}
+
 	public WCDatebaseHelper(Context context){
 		this(context, DATABASE_NAME, null, DATABASE_VERSION);
 	}
@@ -61,20 +70,21 @@ public class WCDatebaseHelper extends SQLiteOpenHelper {
 	@Override
 	public void onCreate(SQLiteDatabase db) {
 		String createMessageTable = "CREATE TABLE "+TABLE_MESSAGE+" ("+
-				ID+" INTEGER PRIMARY KEY ," +
 				TITLE+" TEXT NOT NULL ," +
 				DESCRIPTION+" TEXT ," +
 				TIME+" DATETIME NOT NULL," +
 				URL+" TEXT NOT NULL ," +
 				PUBLISHER+" TEXT ," +
 				VALIDITY+" DATETIME NOT NULL , " +
-				ISREAD+" BOOLEAN DEFAULT false" +
+				ISREAD+" BOOLEAN DEFAULT false , " +
+				TOPIC+" TEXT NOT NULL , " +
+				"constraint pk_message primary key ("+TITLE+","+URL+")" +
 				");";
 
 		String createSubscribeTable = "CREATE TABLE " +TABLE_SUBSCRIBE+" ("+
-				ID+" INTEGER PRIMARY KEY ," +
-				TOPIC+" TEXT NOT NULL," +
-				QOS+" INTEGER NOT NULL" +
+				TOPIC+" TEXT NOT NULL , " +
+				QOS+" INTEGER NOT NULL , " +
+				"constraint pk_subscribe primary key ("+TOPIC+","+QOS+")" +
 				");";
 
 		try {
@@ -99,12 +109,13 @@ public class WCDatebaseHelper extends SQLiteOpenHelper {
 	 * @param url 内容的URL
 	 * @param publisher 推送者
 	 * @param validity 有效日期
+	 * @param topic 订阅的主题
 	 * @return
 	 */
-	public long insertMessage(String title, String description, Date time, String url,String publisher, Date validity) {
+	public long insertMessage(String title, String description, Date time, String url,String publisher, Date validity, String topic) {
 		if (mInsertMessageStatement == null) {
 			mInsertMessageStatement = getWritableDatabase().compileStatement(
-					"INSERT OR IGNORE INTO "+TABLE_MESSAGE+" ("+TITLE+", "+DESCRIPTION+", "+TIME+", "+URL+","+PUBLISHER+", "+VALIDITY+") VALUES (?,?,?,?,?,?)"
+					"INSERT OR IGNORE INTO "+TABLE_MESSAGE+" ("+TITLE+", "+DESCRIPTION+", "+TIME+", "+URL+","+PUBLISHER+", "+VALIDITY+", "+TOPIC+") VALUES (?,?,?,?,?,?,?)"
 			);
 		}
 		SQLiteUtil.bindString(mInsertMessageStatement,1, DESUtil.encrypt(title));
@@ -113,6 +124,7 @@ public class WCDatebaseHelper extends SQLiteOpenHelper {
 		SQLiteUtil.bindString(mInsertMessageStatement,4,DESUtil.encrypt(url));
 		SQLiteUtil.bindString(mInsertMessageStatement,5,DESUtil.encrypt(publisher));
 		SQLiteUtil.bindDate(mInsertMessageStatement,6,validity);
+		SQLiteUtil.bindString(mInsertMessageStatement,7,DESUtil.encrypt(topic));
 		return mInsertMessageStatement.executeInsert();
 	}
 
@@ -137,14 +149,14 @@ public class WCDatebaseHelper extends SQLiteOpenHelper {
 		);
 		while(cursor.moveToNext()) {
 			MessageEntity me = new MessageEntity();
-			me.id          = cursor.getInt(cursor.getColumnIndex(ID));
 			me.title       = DESUtil.decrypt(cursor.getString(cursor.getColumnIndex(TITLE)));
 			me.description = DESUtil.decrypt(cursor.getString(cursor.getColumnIndex(DESCRIPTION)));
 			me.url         = DESUtil.decrypt(cursor.getString(cursor.getColumnIndex(URL)));
-			me.publisher   = DESUtil.decrypt(cursor.getColumnName(cursor.getColumnIndex(PUBLISHER)));
+			me.publisher   = DESUtil.decrypt(cursor.getString(cursor.getColumnIndex(PUBLISHER)));
 			me.time        = SQLiteUtil.getDate(cursor, cursor.getColumnIndex(TIME));
 			me.validity    = SQLiteUtil.getDate(cursor, cursor.getColumnIndex(VALIDITY));
 			me.isRead      = cursor.getInt(cursor.getColumnIndex(ISREAD)) == 0 ? false:true;
+			me.topic       = DESUtil.decrypt(cursor.getString(cursor.getColumnIndex(TOPIC)));
 			list.add(me);
 		}
 		cursor.close();
@@ -154,7 +166,6 @@ public class WCDatebaseHelper extends SQLiteOpenHelper {
 	public List<SubscribeEntity> selectSubscribeAll() {
 		List<SubscribeEntity> list = new ArrayList<>();
 		SubscribeEntity se = new SubscribeEntity();
-		se.id     = -1;
 		se.topic  = "default";
 		se.qos    = 2;
 		list.add(se);
@@ -164,7 +175,6 @@ public class WCDatebaseHelper extends SQLiteOpenHelper {
 		);
 		while(cursor.moveToNext()) {
 			se = new SubscribeEntity();
-			se.id     = cursor.getInt(cursor.getColumnIndex(ID));
 			se.topic  = DESUtil.decrypt(cursor.getString(cursor.getColumnIndex(TOPIC)));
 			se.qos    = cursor.getInt(cursor.getColumnIndex(QOS));
 			list.add(se);
@@ -174,14 +184,15 @@ public class WCDatebaseHelper extends SQLiteOpenHelper {
 	}
 
 	private SQLiteStatement mUpdateMessageStatement;
-	public int updateMessageReadById(int id, boolean isRead){
+	public int updateMessageRead(String title, String url, boolean isRead){
 		if(mUpdateMessageStatement == null) {
 			mUpdateMessageStatement = getWritableDatabase().compileStatement(
-					"UPDATE "+TABLE_MESSAGE+" SET "+ISREAD+" = ? WHERE "+ID+" = ?"
+					"UPDATE "+TABLE_MESSAGE+" SET "+ISREAD+" = ? WHERE "+TITLE+" = ? AND "+URL+" = ?"
 			);
 		}
 		mUpdateMessageStatement.bindLong(1,isRead?1:0);
-		mUpdateMessageStatement.bindLong(2,id);
+		mUpdateMessageStatement.bindString(2,DESUtil.encrypt(title));
+		mUpdateMessageStatement.bindString(3,DESUtil.encrypt(url));
 		if(VERSION.SDK_INT >= VERSION_CODES.HONEYCOMB){
 			return mUpdateMessageStatement.executeUpdateDelete();
 		} else {
@@ -224,4 +235,5 @@ public class WCDatebaseHelper extends SQLiteOpenHelper {
 		}
 
 	}
+
 }

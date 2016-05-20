@@ -17,12 +17,14 @@
 package com.wisdom.community.mqtt.demo;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.wisdom.community.mqtt.demo.entity.MessageEntity;
 
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.Date;
 
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -81,13 +83,13 @@ public class SampleAsyncCallBack implements MqttCallback {
 		String action 		= "publish";
 //		String action       ="subscribe";
 		String topic 		= "";
-		String message 		= "在这里再次进行测试";
-		int qos 			= 1;
-		String broker 		= "192.168.1.100";
+		String message 		= "这是一个标题";
+		int qos 			= 2;
+		String broker 		= "192.168.1.104";
 		int port 			= 1883;
 		String clientId 	= null;
-		String subTopic		= "我";
-		String pubTopic 	= "我";
+		String subTopic		= "青海大厦";
+		String pubTopic 	= "青海大厦";
 		boolean cleanSession = true;			// Non durable subscriptions
 		boolean ssl = false;
 		String password = null;
@@ -180,11 +182,12 @@ public class SampleAsyncCallBack implements MqttCallback {
 			if (action.equals("publish")) {
 //				sampleClient.publish(topic,qos,message.getBytes());
 				MessageEntity me = new MessageEntity();
-				me.title = "测试Title:"+message;
+				me.title = message;
 				me.description = "测试描述信息";
 				me.publisher = "宣传部";
-				me.time = "2016-05-11 15:09:02";
-				me.url = "www.baidu.com";
+				me.time = new Date();
+				me.url = "http://yanbao.stock.hexun.com/dzgg705817.shtml";
+				me.validity = new Date(System.currentTimeMillis()+24*60*60*1000);
 				Gson gson = new Gson();
 				String r = gson.toJson(me);
 				sampleClient.publish(topic,qos,r.getBytes());

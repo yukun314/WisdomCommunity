@@ -4,13 +4,18 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Point;
 import android.os.Build;
+import android.os.Environment;
+import android.telephony.TelephonyManager;
 import android.view.Display;
 import android.view.WindowManager;
 import android.widget.Toast;
 
+import java.io.File;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Created by zyk on 2016/3/15.
@@ -78,8 +83,42 @@ public class Utils {
 	 * 唯一标示该设备的字符串
      * @return
      */
-    public static String getClientId(){
-        //FIXME 需要实现
-        return "123";
+    public static String getClientId(Context context){
+        //不能为null并且长度小于65535
+        return getDeviceId(context);
     }
+
+    /**
+     * 获取DeviceId
+     */
+    public static String getDeviceId(Context context) {
+        TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+        String DEVICE_ID = telephonyManager.getDeviceId();
+        if(DEVICE_ID==null || DEVICE_ID.length()<2){
+            return getUUID(context);
+        } else {
+            return DEVICE_ID;
+        }
+    }
+
+
+    /**
+     * 得到全局唯一UUID
+     */
+    private static String getUUID(Context context){
+        String uuid = null;
+        SharedPreferences mShare = context.getSharedPreferences("myUuid",Activity.MODE_PRIVATE);
+        if(mShare != null){
+            uuid = mShare.getString("uuid", "");
+        }
+
+        if(uuid == null || uuid.length() <2){
+            uuid = UUID.randomUUID().toString();
+            SharedPreferences.Editor editor = mShare.edit();
+            editor.putString("uuid",uuid);
+            editor.commit();
+        }
+        return uuid;
+    }
+
 }

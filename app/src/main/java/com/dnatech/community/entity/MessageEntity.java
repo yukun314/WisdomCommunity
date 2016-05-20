@@ -8,10 +8,9 @@ import java.util.TimeZone;
 /**
  * Created by zyk on 2016/5/11.
  * 推送消息的实体类
+ * title(标题)和url唯一标示一条消息
  */
 public class MessageEntity implements Serializable{
-	//在数据库中的id（唯一标示）
-	public int id;
 	//消息的标题
 	public String title = "";
 	//消息的描述
@@ -26,6 +25,8 @@ public class MessageEntity implements Serializable{
 	public Date validity;
 	//是否已经阅读
 	public boolean isRead = false;
+	//订阅的主题(唯一标示消息的出处 如 a小区和b小区都发了一条相同的公告 topic就可以确定那条是a/b发的)
+	public String topic="";
 
 	public String getTitle() {
 		return title;
@@ -83,12 +84,12 @@ public class MessageEntity implements Serializable{
 		isRead = read;
 	}
 
-	public int getId() {
-		return id;
+	public String getTopic() {
+		return topic;
 	}
 
-	public void setId(int id) {
-		this.id = id;
+	public void setTopic(String topic) {
+		this.topic = topic;
 	}
 
 	@Override
@@ -96,7 +97,6 @@ public class MessageEntity implements Serializable{
 		SimpleDateFormat df=new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
 		df.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
 		return "{" +
-				"id="+id+
 				"title='" + title + '\'' +
 				", description='" + description + '\'' +
 				", time=" + df.format(time) +
@@ -104,6 +104,7 @@ public class MessageEntity implements Serializable{
 				", publisher='" + publisher + '\'' +
 				", Validity=" + df.format(validity) +
 				", isRead="+isRead+
+				", topic='" + topic + '\'' +
 				'}';
 	}
 }

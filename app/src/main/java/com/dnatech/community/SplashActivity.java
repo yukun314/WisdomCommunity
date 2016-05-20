@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 
 import com.dnatech.community.activity.MainActivity;
+import com.dnatech.community.service.NotificationService;
 import com.dnatech.community.sqlite.SQLiteConfig;
 
 
@@ -19,6 +20,9 @@ public class SplashActivity extends Activity{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
         new SQLiteConfig(this);
+        //启动service
+        startService(new Intent(this, NotificationService.class));
+
         Intent intent = new Intent();
         intent.setClass(this, MainActivity.class);
         startActivity(intent);

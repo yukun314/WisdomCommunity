@@ -25,4 +25,7 @@ dependencies {
     compile 'com.android.support:appcompat-v7:23.3.0'
     compile project(':mqtt-paho-service')
     compile 'com.google.code.gson:gson:2.6.2'
+    compile project(':android-QRCode')
+    compile 'com.squareup.okhttp3:okhttp:3.2.0'
+    compile 'com.squareup.okio:okio:1.8.0'
 }
