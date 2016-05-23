@@ -7,6 +7,7 @@ import com.dnatech.community.app.BaseActivity;
 
 /**
  * Created by zyk on 2016/5/20.
+ * 钥匙管理
  */
 public class KeyManagerActivity extends BaseActivity {
 	@Override
