@@ -40,6 +40,8 @@
         <activity android:name=".activity.MainActivity"/>
         <activity android:name=".activity.NotificationActivity"/>
         <activity android:name=".activity.NotificationDetailActivity"/>
+        <activity android:name=".activity.KeyManagerActivity"/>
+        <activity android:name=".activity.RelayTestActivity"/>
     </application>
 
 </manifest>

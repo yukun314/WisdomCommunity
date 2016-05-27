@@ -9,6 +9,7 @@ import android.graphics.Point;
 import android.os.Build;
 import android.os.Environment;
 import android.telephony.TelephonyManager;
+import android.util.TypedValue;
 import android.view.Display;
 import android.view.WindowManager;
 import android.widget.Toast;
@@ -121,4 +122,9 @@ public class Utils {
         return uuid;
     }
 
+
+    public static int dp2px(int dp,Context context) {
+        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp,
+                context.getResources().getDisplayMetrics());
+    }
 }

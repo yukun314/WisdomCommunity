@@ -138,6 +138,33 @@ final class CameraConfigurationManager {
     Log.i(TAG, "Preview size on screen: " + previewSizeOnScreen);
   }
 
+  //用下面的这个方法可以防止竖屏后屏幕被拉伸，现在手机上测试没被拉伸
+//  void initFromCameraParameters(Camera camera) {
+//    Camera.Parameters parameters = camera.getParameters();
+//    previewFormat = parameters.getPreviewFormat();
+//    previewFormatString = parameters.get("preview-format");
+//    Log.d(TAG, "Default preview format: " + previewFormat + '/'
+//            + previewFormatString);
+//    WindowManager manager = (WindowManager) context
+//            .getSystemService(Context.WINDOW_SERVICE);
+//    Display display = manager.getDefaultDisplay();
+//    screenResolution = new Point(display.getWidth(), display.getHeight());
+//    Log.d(TAG, "Screen resolution: " + screenResolution);
+//
+//    Point screenResolutionForCamera = new Point();
+//    screenResolutionForCamera.x = screenResolution.x;
+//    screenResolutionForCamera.y = screenResolution.y;
+//
+//    // preview size is always something like 480*320, other 320*480
+//    if (screenResolution.x < screenResolution.y) {
+//      screenResolutionForCamera.x = screenResolution.y;
+//      screenResolutionForCamera.y = screenResolution.x;
+//    }
+//
+//    cameraResolution = getCameraResolution(parameters, screenResolutionForCamera);
+//    Log.d(TAG, "Camera resolution: " + screenResolution);
+//  }
+
   void setDesiredCameraParameters(OpenCamera camera, boolean safeMode) {
 
     Camera theCamera = camera.getCamera();
@@ -182,10 +209,9 @@ final class CameraConfigurationManager {
     }
 
     parameters.setPreviewSize(bestPreviewSize.x, bestPreviewSize.y);
+    theCamera.setDisplayOrientation(cwRotationFromDisplayToCamera);
 
     theCamera.setParameters(parameters);
-
-    theCamera.setDisplayOrientation(cwRotationFromDisplayToCamera);
 
     Camera.Parameters afterParameters = theCamera.getParameters();
     Camera.Size afterSize = afterParameters.getPreviewSize();

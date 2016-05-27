@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.SQLException;
 import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.IBinder;
@@ -20,12 +21,15 @@ import com.dnatech.community.R;
 import com.dnatech.community.activity.MainActivity;
 import com.dnatech.community.activity.NotificationActivity;
 import com.dnatech.community.entity.MessageEntity;
+import com.dnatech.community.entity.ResponseEntity;
 import com.dnatech.community.entity.SubscribeEntity;
+import com.dnatech.community.okhttp.OkHttpClientManager;
 import com.dnatech.community.sqlite.WCDatebaseHelper;
 import com.dnatech.community.utils.NetworkUtils;
 import com.dnatech.community.utils.Utils;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
 
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -36,10 +40,17 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.Response;
 
 /**
  * Created by zyk on 2016/5/12.
@@ -67,14 +78,18 @@ public class NotificationService extends Service implements MqttCallback {
 	private ConnectActionListener mConnectAction = new ConnectActionListener();
 	private SubscribeActionListener mSubscribeAction = new SubscribeActionListener();
 
+	//订阅主题
+	private String[] topic;
+	private int[]qos;
+
 	@Override
 	public void onCreate() {
 		super.onCreate();
 		mDatebase = WCDatebaseHelper.getInstance(this);
-		mDatebase.insertMessage("title","简介",new Date(),"url","publisher",new Date(System.currentTimeMillis()+24*60*60*1000),"a小区");
+//		mDatebase.insertMessage("title","简介",new Date(),"url","publisher",new Date(System.currentTimeMillis()+24*60*60*1000),"a小区");
 //		mDatebase.selectMessageAll();
-		mDatebase.updateMessageRead("title", "url",true);
-		mDatebase.insertSubscribe("青海大厦",2);
+//		mDatebase.updateMessageRead("title", "url",true);
+//		mDatebase.insertSubscribe("青海大厦",2);
 		//新建客户端并连接MQTT服务器
 		newClient();
 		reconnect();
@@ -115,15 +130,17 @@ public class NotificationService extends Service implements MqttCallback {
 		System.out.println("NotificationService connectionLost");
 		// Called when the connection to the server has been lost.
 		// An application may choose to implement reconnection
+		reconnect();
 	}
 
 	@Override
-	public void messageArrived(String topic, MqttMessage message) throws Exception {
+	public void messageArrived(String topic, MqttMessage message) {
 		System.out.println("NotificationService messageArrived:"+message);
 		// Called when a message arrives from the server that matches any
 		// subscription made by the client
 		try {
 			String result = new String(message.getPayload());
+			System.out.println("result:"+result);
 			Gson gson = new Gson();
 			MessageEntity me = gson.fromJson(result, MessageEntity.class);
 			me.topic = topic;
@@ -147,13 +164,17 @@ public class NotificationService extends Service implements MqttCallback {
 //				} else {
 //					System.out.println("客户端不在线 进行通知栏提醒");
 				System.out.println("收到新消息："+me);
-				mDatebase.insertMessage(me.title,me.description,me.time,me.url,me.publisher,me.validity,me.topic);
+				long a = mDatebase.insertMessage(me.title,me.description,me.getTime(),me.url,me.publisher,me.getValidity(),me.topic);
+				System.out.println("a:"+a);
 					sendNotification(me);
 //				}
 			}
 		}catch (JsonSyntaxException e){
 			e.printStackTrace();
 			System.out.println("JsonSyntaxException :"+e);
+		} catch (SQLException e){
+			e.printStackTrace();
+			System.out.println("SQLException :"+e);
 		}
 	}
 
@@ -193,7 +214,6 @@ public class NotificationService extends Service implements MqttCallback {
 	//FIXME 点击跳转的Activity 和图标 根据需要修改
 	private void sendNotification(MessageEntity me) {
 		NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
-
 		builder.setSmallIcon(R.mipmap.ic_launcher);//icon
 		builder.setContentTitle(me.title);//标题
 		builder.setContentText(me.description);//内容
@@ -201,7 +221,6 @@ public class NotificationService extends Service implements MqttCallback {
 		builder.setTicker(me.title);//第一次提示消息的时候显示在通知栏上
 		builder.setAutoCancel(true);//用户点击消息自动取消
 		builder.setPriority(Notification.PRIORITY_MAX);//设置优先级
-
 		/**
 		 * DEFAULT_ALL    使用所有默认值，比如声音，震动，闪屏等等
 		 * DEFAULT_LIGHTS 使用默认闪光提示
@@ -214,7 +233,6 @@ public class NotificationService extends Service implements MqttCallback {
 		Intent intent = new Intent(this, NotificationActivity.class);
 		PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 		builder.setContentIntent(pendingIntent);
-
 		// 发送通知 id 需要在应用内唯一
 		NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 		notificationManager.notify(100, builder.build());
@@ -343,6 +361,23 @@ public class NotificationService extends Service implements MqttCallback {
 		}
 	}
 
+	private void subscribe(){
+		List<SubscribeEntity> list = mDatebase.selectSubscribeAll();
+		int count = list.size();
+		topic = new String[count];
+		qos = new int[count];
+		for(int i = 0;i<count;i++){
+			SubscribeEntity se = list.get(i);
+			topic[i] = se.topic;
+			qos[i] = se.qos;
+		}
+		try {
+			mClient.subscribe(topic,qos, null, mSubscribeAction);
+		} catch (MqttException e1) {
+			e1.printStackTrace();
+		}
+	}
+
 	/*
 	 * Called in response to a change in network connection - after losing a
 	 * connection to the server, this allows us to wait until we have a usable
@@ -407,17 +442,11 @@ public class NotificationService extends Service implements MqttCallback {
 			System.out.println("链接成功");
 			//订阅 自己的主题
 			try {
-				List<SubscribeEntity> list = mDatebase.selectSubscribeAll();
-				int count = list.size();
-				String[]topic = new String[count];
-				int[]qos = new int[count];
-				for(int i = 0;i<count;i++){
-					SubscribeEntity se = list.get(i);
-					topic[i] = se.topic;
-					qos[i] = se.qos;
-				}
-				mClient.subscribe(topic,qos, null, mSubscribeAction);
-			} catch (MqttException e) {
+				JSONObject json = new JSONObject();
+				json.put("devId",Utils.getClientId(NotificationService.this));
+				OkHttpClientManager.request("", "getsubject", json.toString(), mCallback);
+
+			} catch (JSONException e) {
 				e.printStackTrace();
 			}
 		}
@@ -462,4 +491,48 @@ public class NotificationService extends Service implements MqttCallback {
 			}
 		}
 	}
+
+	private Callback mCallback = new Callback(){
+		@Override
+		public void onFailure(Call call, IOException e) {
+			System.out.println("从服务器获取订阅主题失败 使用本地保存的主题");
+			subscribe();
+		}
+
+		@Override
+		public void onResponse(Call call, Response response) throws IOException {
+
+			String result = response.body().string();
+			System.out.println("获取订阅主题成功:"+result);
+			Gson gson = new Gson();
+			ResponseEntity re = gson.fromJson(result, ResponseEntity.class);
+			if(re.code == 0){
+				WCDatebaseHelper.getInstance(NotificationService.this).deleteAllSubscribe();
+				List<SubscribeEntity> list = gson.fromJson(re.data,new TypeToken<List<SubscribeEntity>>() {}.getType());
+				int count = list.size();
+				for(int i = 0;i<count;i++){
+					SubscribeEntity se = list.get(i);
+					WCDatebaseHelper.getInstance(NotificationService.this).insertSubscribe(se.topic,se.qos);
+					System.out.println("se:"+se);
+				}
+				subscribe();
+			} else {
+				subscribe();
+			}
+//			List<SubscribeEntity> list = mDatebase.selectSubscribeAll();
+//			int count = list.size();
+//			String[]topic = new String[count];
+//			int[]qos = new int[count];
+//			for(int i = 0;i<count;i++){
+//				SubscribeEntity se = list.get(i);
+//				topic[i] = se.topic;
+//				qos[i] = se.qos;
+//			}
+//			try {
+//				mClient.subscribe(topic,qos, null, mSubscribeAction);
+//			} catch (MqttException e) {
+//				e.printStackTrace();
+//			}
+		}
+	};
 }

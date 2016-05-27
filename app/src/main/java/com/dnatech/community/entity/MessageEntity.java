@@ -1,6 +1,10 @@
 package com.dnatech.community.entity;
 
 import java.io.Serializable;
+import java.text.DateFormat;
+import java.text.FieldPosition;
+import java.text.ParseException;
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
@@ -15,18 +19,20 @@ public class MessageEntity implements Serializable{
 	public String title = "";
 	//消息的描述
 	public String description = "";
-	//消息的发布时间
-	public Date time ;
+	//消息的发布时间 格式2016-05-21 14:21:33
+	public String time = "";
 	//消息的URL，"订阅者"根据该url获取完整的消息内容
 	public String url = "";
 	//消息的发布者(个人或组织名称)
 	public String publisher = "";
-	//有效期
-	public Date validity;
+	//有效期 格式与time相同
+	public String  validity;
 	//是否已经阅读
 	public boolean isRead = false;
 	//订阅的主题(唯一标示消息的出处 如 a小区和b小区都发了一条相同的公告 topic就可以确定那条是a/b发的)
 	public String topic="";
+
+	private SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
 
 	public String getTitle() {
 		return title;
@@ -61,19 +67,31 @@ public class MessageEntity implements Serializable{
 	}
 
 	public Date getTime() {
-		return time;
+		Date date = new Date();
+		try {
+			date = format.parse(time);
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		return date;
 	}
 
 	public void setTime(Date time) {
-		this.time = time;
+		this.time = format.format(time);
 	}
 
 	public Date getValidity() {
-		return validity;
+		Date date = new Date();
+		try {
+			date = format.parse(validity);
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		return date;
 	}
 
 	public void setValidity(Date validity) {
-		validity = validity;
+		this.validity = format.format(validity);
 	}
 
 	public boolean isRead() {
@@ -94,15 +112,13 @@ public class MessageEntity implements Serializable{
 
 	@Override
 	public String toString() {
-		SimpleDateFormat df=new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-		df.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
 		return "{" +
 				"title='" + title + '\'' +
 				", description='" + description + '\'' +
-				", time=" + df.format(time) +
+				", time=" + time +
 				", url='" + url + '\'' +
 				", publisher='" + publisher + '\'' +
-				", Validity=" + df.format(validity) +
+				", Validity=" + validity +
 				", isRead="+isRead+
 				", topic='" + topic + '\'' +
 				'}';
